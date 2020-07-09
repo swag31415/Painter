@@ -31,3 +31,41 @@ proc get_dom_pixs(k: Kernel): seq[Pixel] =
   while s[^1].diff(result[0]) < s[^1].diff(s[0]): # if a node is closer to the antipode than the pode
     result.add(s.pop()) # Add it to the result
   if s.len > (k.len div 2): return s # if we have a majority in `s` return `s`
+
+proc get_direction(pixs: openArray[Pixel]; x0, y0: int): tuple[x, y: float] =
+  for (x, y, c) in pixs:
+    result.x += float(x - x0)
+    result.y += float(y - y0)
+  let mag = sqrt(result.x^2 + result.y^2)
+  if mag == 0: return (0.0, 0.0)
+  result.x /= mag
+  result.y /= mag
+
+proc mix(c1: ColorRGBA; r1: float; c2: ColorRGBA; r2: float): ColorRGBA =
+  result.r = uint8((c1.r.float * r1) + (c2.r.float * r2))
+  result.g = uint8((c1.g.float * r1) + (c2.g.float * r2))
+  result.b = uint8((c1.b.float * r1) + (c2.b.float * r2))
+
+proc paint(img: Image): Image =
+  result = img
+  for i in countup(3, result.data.high, result.channels):
+    result.data[i] = 1 # Set all the alpha values to 1 to use as a tracker variable for mixing
+  for k in img.kernels:
+    let # Get the coords from the center Pixel of the kernel
+      x = k[4].x
+      y = k[4].y
+    let dom_pixs = k.get_dom_pixs()
+    let dom_c = dom_pixs[0].color # Get the dominant color in the kernel
+    let (dx, dy) = dom_pixs.get_direction(x, y) # Get the gradient of the dominant pixels in the kernel from the kernels center
+    for i in -2..2:
+      for j in -2..2:
+        if dx*i.float + dy*j.float >= 0 and result.inside(x+i, y+j): # As long as they dont face away from each other (uses dot product)
+          let a = float(result.getRgba(x+i, y+j).a)
+          var new_c = mix(img.getRgba(x+i, y+j), a / (a+1), dom_c, 1 / (a+1))
+          new_c.a = a.uint8 + 1
+          result.putRgba(x+i, y+j, new_c)
+  for i in countup(3, result.data.high, result.channels):
+    result.data[i] = 255 # Make the image fully opaque
+
+var img = loadImage("img.png").trim().paint()
+img.save("heh.png")
