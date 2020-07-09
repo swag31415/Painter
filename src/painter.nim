@@ -59,9 +59,9 @@ proc paint(img: Image): Image =
     let (dx, dy) = dom_pixs.get_direction(x, y) # Get the gradient of the dominant pixels in the kernel from the kernels center
     for i in -2..2:
       for j in -2..2:
-        if dx*i.float + dy*j.float >= 0 and result.inside(x+i, y+j): # As long as they dont face away from each other (uses dot product)
+        if abs(dx*(i.float/2) + dy*(j.float/2)) >= 0.9 and result.inside(x+i, y+j): # As long as they dont face away from each other (uses dot product)
           let a = float(result.getRgba(x+i, y+j).a)
-          var new_c = mix(img.getRgba(x+i, y+j), a / (a+1), dom_c, 1 / (a+1))
+          var new_c = mix(img.getRgba(x+i, y+j), 1/2, dom_c, 1/2)
           new_c.a = a.uint8 + 1
           result.putRgba(x+i, y+j, new_c)
   for i in countup(3, result.data.high, result.channels):
